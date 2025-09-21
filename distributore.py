@@ -1,7 +1,11 @@
-class Distributore:
+from serbatoio import Serbatoio
+
+class Distributore(Serbatoio):
     def __init__(self, id_distributore, nome, provincia, lat, lon,
                  capienza_benzina, capienza_diesel,
                  prezzo_benzina, prezzo_diesel, numero_pompe):
+
+        super().__init__(capienza_benzina, 0, 0, 0, 0)
 
         self.id = id_distributore
         self.nome = nome
@@ -24,18 +28,20 @@ class Distributore:
         self.incasso = 0
 
     def stato(self):
+        """Restituisce tutte le informazioni del distributore"""
         return {
             "id": self.id,
             "nome": self.nome,
             "provincia": self.provincia,
             "coordinate": (self.lat, self.lon),
-            "litri_benzina_venduti": self.venduti_benzina,
-            "litri_diesel_venduti": self.venduti_diesel,
-            "incasso": self.incasso,
             "benzina_disponibile": self.volume_benzina,
             "diesel_disponibile": self.volume_diesel,
             "prezzo_benzina": self.prezzo_benzina,
             "prezzo_diesel": self.prezzo_diesel,
+            "numero_pompe": self.numero_pompe,
+            "litri_benzina_venduti": self.venduti_benzina,
+            "litri_diesel_venduti": self.venduti_diesel,
+            "incasso": self.incasso
         }
 
     def cambia_prezzo(self, tipo, nuovo_prezzo):
