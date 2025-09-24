@@ -1,11 +1,27 @@
 # main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dati import distributori
 
 app = FastAPI()
+
+# Alias città → nome completo
+CITTA_ALIAS = {
+    "monaco": "Monaco di Baviera",
+    "monaco di baviera": "Monaco di Baviera",
+    "mosca": "Mosca",
+    "san pietroburgo": "San Pietroburgo",
+    "pietrogrado": "San Pietroburgo",
+    "pietroburgo": "San Pietroburgo",
+    "volgograd": "Volgograd",
+    "varsavia": "Varsavia",
+    "parigi": "Parigi",
+    "londra": "Londra",
+    "stalingrado": "Volgograd",
+    "krakau": "Cracovia",
+    "krakow": "Cracovia"
+}
 
 # -- API esistenti ----------------------------------------------------------
 @app.get("/distributori")
@@ -14,7 +30,9 @@ def elenco_distributori():
 
 @app.get("/distributori/provincia/{provincia}")
 def livello_provincia(provincia: str):
-    return [d.stato() for d in distributori if d.provincia.lower() == provincia.lower()]
+    # Normalizza alias
+    provincia_norm = CITTA_ALIAS.get(provincia.lower(), provincia)
+    return [d.stato() for d in distributori if d.provincia.lower() == provincia_norm.lower()]
 
 @app.get("/distributori/{id_distributore}")
 def livello_distributore(id_distributore: int):
@@ -25,17 +43,13 @@ def livello_distributore(id_distributore: int):
 
 @app.post("/distributori/prezzo/{provincia}")
 def cambia_prezzo_provincia(provincia: str, tipo: str, nuovo_prezzo: float):
-    count = 0
+    provincia_norm = CITTA_ALIAS.get(provincia.lower(), provincia)
+    modificati = []
     for d in distributori:
-        if d.provincia.lower() == provincia.lower():
+        if d.provincia.lower() == provincia_norm.lower():
             d.cambia_prezzo(tipo, nuovo_prezzo)
-            count += 1
-    return {
-        "provincia": provincia,
-        "tipo": tipo,
-        "nuovo_prezzo": nuovo_prezzo,
-        "distributori_aggiornati": count
-    }
+            modificati.append(d.stato())
+    return modificati  # ritorna lista di distributori aggiornati
 
 # -- Serve la pagina HTML (frontend) ---------------------------------------
 templates = Jinja2Templates(directory="templates")
