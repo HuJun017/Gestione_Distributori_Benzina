@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Monitoraggio Distributori Iperstaroil</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- CSS Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; }
+header { background:#2c3e50; color:white; padding:12px 16px; }
+main { display:flex; gap:16px; padding:16px; }
+.left { width:420px; max-height:80vh; overflow:auto; }
+.right { flex:1; min-height:70vh; }
+.card { border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:6px; background:#fff; }
+label { display:block; margin-top:8px; font-weight:600; }
+input[type="text"], input[type="number"], select { width:100%; padding:6px; box-sizing:border-box; }
+button { margin-top:8px; padding:8px 10px; cursor:pointer; }
+#map { height:75vh; border-radius:6px; }
+pre { white-space:pre-wrap; word-wrap:break-word; }
+</style>
+</head>
+<body>
+<header>
+<h2>Monitoraggio Distributori Iperstaroil</h2>
+</header>
+<main>
+<div class="left">
+    <div class="card">
+        <h3>Elenco distributori (tutti)</h3>
+        <button id="btn-list-all">Mostra elenco</button>
+        <div id="list-all"></div>
+    </div>
+    <div class="card">
+        <h3>Ricerca per provincia</h3>
+        <label for="prov-input">Provincia</label>
+        <input id="prov-input" type="text" placeholder="es. Milano" />
+        <button id="btn-prov">Cerca</button>
+        <div id="prov-result"></div>
+    </div>
+    <div class="card">
+        <h3>Ricerca per ID</h3>
+        <label for="id-input">ID Distributore</label>
+        <input id="id-input" type="number" min="1" />
+        <button id="btn-id">Cerca</button>
+        <div id="id-result"></div>
+    </div>
+    <div class="card">
+        <h3>Cambio prezzo per provincia</h3>
+        <label for="prov-price">Provincia</label>
+        <input id="prov-price" type="text" placeholder="es. Milano" />
+        <label for="tipo-price">Tipo carburante</label>
+        <select id="tipo-price">
+            <option value="benzina">benzina</option>
+            <option value="diesel">diesel</option>
+        </select>
+        <label for="new-price">Nuovo prezzo (€)</label>
+        <input id="new-price" type="number" step="0.01" />
+        <button id="btn-change-price">Aggiorna prezzi</button>
+        <div id="change-result"></div>
+    </div>
+</div>
+<div class="right">
+    <div class="card">
+        <h3>Mappa distributori</h3>
+        <div id="map"></div>
+    </div>
+</div>
+</main>
+
+<!-- JS Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API_URL = "/";
+
+// Mappa
+const map = L.map('map').setView([41.9, 12.5], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+const markers = L.layerGroup().addTo(map);
+
+// Toggle elenco
+let elencoVisibile = false;
+
+async function toggleElenco() {
+    const listDiv = document.getElementById('list-all');
+    const btn = document.getElementById('btn-list-all');
+
+    if (elencoVisibile) {
+        listDiv.innerHTML = "";
+        markers.clearLayers();
+        btn.innerText = "Mostra elenco";
+        elencoVisibile = false;
+    } else {
+        try {
+            const res = await fetch('/distributori');
+            const data = await res.json();
+
+            listDiv.innerHTML = "";
+            data.forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'card';
+                el.innerHTML = `<strong>${d.nome} (ID ${d.id})</strong><br/>
+                                Provincia: ${d.provincia}<br/>
+                                Benzina: ${d.benzina_disponibile} L — € ${d.prezzo_benzina}<br/>
+                                Diesel: ${d.diesel_disponibile} L — € ${d.prezzo_diesel}`;
+                listDiv.appendChild(el);
+            });
+
+            // Aggiorna mappa
+            markers.clearLayers();
+            data.forEach(d => {
+                const lat = d.coordinate[0];
+                const lon = d.coordinate[1];
+                const popup = `<b>${d.nome} (ID ${d.id})</b><br/>
+                               Provincia: ${d.provincia}<br/>
+                               Benzina: ${d.benzina_disponibile} L (€${d.prezzo_benzina})<br/>
+                               Diesel: ${d.diesel_disponibile} L (€${d.prezzo_diesel})`;
+                L.marker([lat, lon]).addTo(markers).bindPopup(popup);
+            });
+
+            if (data.length) {
+                const coords = data.map(d => [d.coordinate[0], d.coordinate[1]]);
+                map.fitBounds(L.latLngBounds(coords).pad(0.2));
+            }
+
+            btn.innerText = "Nascondi elenco";
+            elencoVisibile = true;
+
+        } catch (err) {
+            console.error(err);
+            alert("Errore nel recupero dati: " + err);
+        }
+    }
+}
+
+// Eventi bottoni
+document.getElementById('btn-list-all').addEventListener('click', toggleElenco);
+
+document.getElementById('btn-prov').addEventListener('click', async () => {
+    const prov = document.getElementById('prov-input').value.trim();
+    if (!prov) return alert('Inserisci una provincia');
+    try {
+        const res = await fetch(`/distributori/provincia/${encodeURIComponent(prov)}`);
+        const data = await res.json();
+        document.getElementById('prov-result').innerText = JSON.stringify(data, null, 2);
+    } catch (err) {
+        console.error(err);
+        alert("Errore nella ricerca per provincia");
+    }
+});
+
+document.getElementById('btn-id').addEventListener('click', async () => {
+    const id = document.getElementById('id-input').value;
+    if (!id) return alert('Inserisci un ID');
+    try {
+        const res = await fetch(`/distributori/${id}`);
+        const data = await res.json();
+        document.getElementById('id-result').innerText = JSON.stringify(data, null, 2);
+    } catch (err) {
+        console.error(err);
+        alert("Errore nella ricerca per ID");
+    }
+});
+
+document.getElementById('btn-change-price').addEventListener('click', async () => {
+    const prov = document.getElementById('prov-price').value.trim();
+    const tipo = document.getElementById('tipo-price').value;
+    const nuovo = document.getElementById('new-price').value;
+    if (!prov || !tipo || !nuovo) return alert('Compila tutti i campi per il cambio prezzo');
+    try {
+        const url = `/distributori/prezzo/${encodeURIComponent(prov)}?tipo=${encodeURIComponent(tipo)}&nuovo_prezzo=${encodeURIComponent(nuovo)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('change-result').innerText = JSON.stringify(data, null, 2);
+    } catch (err) {
+        console.error(err);
+        alert("Errore nell'aggiornamento dei prezzi");
+    }
+});
+</script>
+</body>
+</html>
