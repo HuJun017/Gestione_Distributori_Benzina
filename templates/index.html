@@ -12,12 +12,28 @@ header { background:#2c3e50; color:white; padding:12px 16px; }
 main { display:flex; gap:16px; padding:16px; }
 .left { width:420px; max-height:80vh; overflow:auto; }
 .right { flex:1; min-height:70vh; }
-.card { border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:6px; background:#fff; }
+.card { border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:6px; background:#fff; position:relative; }
 label { display:block; margin-top:8px; font-weight:600; }
 input[type="text"], input[type="number"], select { width:100%; padding:6px; box-sizing:border-box; }
 button { margin-top:8px; padding:8px 10px; cursor:pointer; }
 #map { height:75vh; border-radius:6px; }
-pre { white-space:pre-wrap; word-wrap:break-word; }
+
+/* Bottone chiudi dentro la scheda */
+.close-btn {
+  position:absolute;
+  top:6px;
+  right:6px;
+  background:#e74c3c;
+  color:white;
+  border:none;
+  border-radius:4px;
+  padding:2px 6px;
+  font-size:12px;
+  cursor:pointer;
+}
+.close-btn:hover {
+  background:#c0392b;
+}
 </style>
 </head>
 <body>
@@ -71,9 +87,6 @@ pre { white-space:pre-wrap; word-wrap:break-word; }
 <!-- JS Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const API_URL = "/";
-
-// Mappa
 const map = L.map('map').setView([41.9, 12.5], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -81,90 +94,112 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
 
-// Toggle elenco
-let elencoVisibile = false;
-
-async function toggleElenco() {
-    const listDiv = document.getElementById('list-all');
-    const btn = document.getElementById('btn-list-all');
-
-    if (elencoVisibile) {
-        listDiv.innerHTML = "";
-        markers.clearLayers();
-        btn.innerText = "Mostra elenco";
-        elencoVisibile = false;
-    } else {
-        try {
-            const res = await fetch('/distributori');
-            const data = await res.json();
-
-            listDiv.innerHTML = "";
-            data.forEach(d => {
-                const el = document.createElement('div');
-                el.className = 'card';
-                el.innerHTML = `<strong>${d.nome} (ID ${d.id})</strong><br/>
-                                Provincia: ${d.provincia}<br/>
-                                Benzina: ${d.benzina_disponibile} L — € ${d.prezzo_benzina}<br/>
-                                Diesel: ${d.diesel_disponibile} L — € ${d.prezzo_diesel}`;
-                listDiv.appendChild(el);
-            });
-
-            // Aggiorna mappa
-            markers.clearLayers();
-            data.forEach(d => {
-                const lat = d.coordinate[0];
-                const lon = d.coordinate[1];
-                const popup = `<b>${d.nome} (ID ${d.id})</b><br/>
-                               Provincia: ${d.provincia}<br/>
-                               Benzina: ${d.benzina_disponibile} L (€${d.prezzo_benzina})<br/>
-                               Diesel: ${d.diesel_disponibile} L (€${d.prezzo_diesel})`;
-                L.marker([lat, lon]).addTo(markers).bindPopup(popup);
-            });
-
-            if (data.length) {
-                const coords = data.map(d => [d.coordinate[0], d.coordinate[1]]);
-                map.fitBounds(L.latLngBounds(coords).pad(0.2));
-            }
-
-            btn.innerText = "Nascondi elenco";
-            elencoVisibile = true;
-
-        } catch (err) {
-            console.error(err);
-            alert("Errore nel recupero dati: " + err);
-        }
+// Funzione per aggiornare mappa
+function aggiornaMappa(data) {
+    markers.clearLayers();
+    data.forEach(d => {
+        const [lat, lon] = d.coordinate;
+        const popup = `<b>${d.nome} (ID ${d.id})</b><br/>
+                       Provincia: ${d.provincia}<br/>
+                       Benzina: ${d.benzina_disponibile} L (€${d.prezzo_benzina})<br/>
+                       Diesel: ${d.diesel_disponibile} L (€${d.prezzo_diesel})`;
+        L.marker([lat, lon]).addTo(markers).bindPopup(popup);
+    });
+    if (data.length) {
+        const coords = data.map(d => d.coordinate);
+        map.fitBounds(L.latLngBounds(coords).pad(0.2));
     }
 }
 
-// Eventi bottoni
-document.getElementById('btn-list-all').addEventListener('click', toggleElenco);
+// genera elenco
+function generaElenco(data, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+    (Array.isArray(data) ? data : [data]).forEach(d => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+            <button class="close-btn" onclick="this.parentElement.remove()">✖</button>
+            <strong>${d.nome} (ID ${d.id})</strong><br/>
+            <b>Provincia:</b> ${d.provincia}<br/>
+            <b>Coordinate:</b> ${d.coordinate[0]}, ${d.coordinate[1]}<br/>
+            <b>Numero pompe:</b> ${d.numero_pompe}<br/>
+            <hr>
+            <b>Benzina disponibile:</b> ${d.benzina_disponibile} L — € ${d.prezzo_benzina}<br/>
+            <b>Diesel disponibile:</b> ${d.diesel_disponibile} L — € ${d.prezzo_diesel}<br/>
+            <hr>
+            <b>Litri benzina venduti:</b> ${d.litri_benzina_venduti}<br/>
+            <b>Litri diesel venduti:</b> ${d.litri_diesel_venduti}<br/>
+            <b>Incasso totale:</b> € ${d.incasso}
+        `;
+        // Aggiungi evento click per centrare la mappa
+        el.addEventListener('click', () => {
+            const [lat, lon] = d.coordinate;
+            map.flyTo([lat, lon], 17, { duration: 1.5 }); // zoom più ravvicinato
+        });
 
+        container.appendChild(el);
+
+    });
+}
+
+
+// Elenco completo
+let elencoVisibile = false;
+document.getElementById('btn-list-all').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-list-all');
+    const containerId = 'list-all';
+    if (elencoVisibile) {
+        document.getElementById(containerId).innerHTML = "";
+        markers.clearLayers();
+        btn.innerText = "Mostra elenco";
+        elencoVisibile = false;
+        return;
+    }
+    try {
+        const res = await fetch('/distributori');
+        const data = await res.json();
+        generaElenco(data, containerId);
+        aggiornaMappa(data);
+        btn.innerText = "Nascondi elenco";
+        elencoVisibile = true;
+    } catch (err) {
+        console.error(err);
+        alert("Errore nel recupero dati: " + err);
+    }
+});
+
+// Ricerca per provincia
 document.getElementById('btn-prov').addEventListener('click', async () => {
     const prov = document.getElementById('prov-input').value.trim();
     if (!prov) return alert('Inserisci una provincia');
     try {
         const res = await fetch(`/distributori/provincia/${encodeURIComponent(prov)}`);
         const data = await res.json();
-        document.getElementById('prov-result').innerText = JSON.stringify(data, null, 2);
+        generaElenco(data, 'prov-result');
+        aggiornaMappa(data);
     } catch (err) {
         console.error(err);
         alert("Errore nella ricerca per provincia");
     }
 });
 
+// Ricerca per ID
 document.getElementById('btn-id').addEventListener('click', async () => {
     const id = document.getElementById('id-input').value;
     if (!id) return alert('Inserisci un ID');
     try {
         const res = await fetch(`/distributori/${id}`);
         const data = await res.json();
-        document.getElementById('id-result').innerText = JSON.stringify(data, null, 2);
+        generaElenco(data, 'id-result');
+        aggiornaMappa(Array.isArray(data) ? data : [data]);
     } catch (err) {
         console.error(err);
         alert("Errore nella ricerca per ID");
     }
 });
 
+// Cambio prezzo
 document.getElementById('btn-change-price').addEventListener('click', async () => {
     const prov = document.getElementById('prov-price').value.trim();
     const tipo = document.getElementById('tipo-price').value;
@@ -174,7 +209,7 @@ document.getElementById('btn-change-price').addEventListener('click', async () =
         const url = `/distributori/prezzo/${encodeURIComponent(prov)}?tipo=${encodeURIComponent(tipo)}&nuovo_prezzo=${encodeURIComponent(nuovo)}`;
         const res = await fetch(url, { method: 'POST' });
         const data = await res.json();
-        document.getElementById('change-result').innerText = JSON.stringify(data, null, 2);
+        generaElenco(data, 'change-result');
     } catch (err) {
         console.error(err);
         alert("Errore nell'aggiornamento dei prezzi");
