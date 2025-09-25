@@ -31,9 +31,7 @@ button { margin-top:8px; padding:8px 10px; cursor:pointer; }
   font-size:12px;
   cursor:pointer;
 }
-.close-btn:hover {
-  background:#c0392b;
-}
+.close-btn:hover { background:#c0392b; }
 </style>
 </head>
 <body>
@@ -75,7 +73,25 @@ button { margin-top:8px; padding:8px 10px; cursor:pointer; }
         <button id="btn-change-price">Aggiorna prezzi</button>
         <div id="change-result"></div>
     </div>
+    <div class="card">
+        <h3>Eroga carburante</h3>
+        <label for="id-eroga">ID Distributore</label>
+        <input id="id-eroga" type="number" min="1" />
+
+        <label for="tipo-eroga">Tipo carburante</label>
+        <select id="tipo-eroga">
+            <option value="benzina">benzina</option>
+            <option value="diesel">diesel</option>
+        </select>
+
+        <label for="litri-eroga">Litri da erogare</label>
+        <input id="litri-eroga" type="number" step="0.01" />
+
+        <button id="btn-eroga">Eroga</button>
+        <div id="eroga-result"></div>
+    </div>
 </div>
+
 <div class="right">
     <div class="card">
         <h3>Mappa distributori</h3>
@@ -94,7 +110,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
 
-// Funzione per aggiornare mappa
+// Aggiorna mappa
 function aggiornaMappa(data) {
     markers.clearLayers();
     data.forEach(d => {
@@ -111,7 +127,7 @@ function aggiornaMappa(data) {
     }
 }
 
-// genera elenco
+// genera elenco con mini form di erogazione
 function generaElenco(data, containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
@@ -130,19 +146,52 @@ function generaElenco(data, containerId) {
             <hr>
             <b>Litri benzina venduti:</b> ${d.litri_benzina_venduti}<br/>
             <b>Litri diesel venduti:</b> ${d.litri_diesel_venduti}<br/>
-            <b>Incasso totale:</b> € ${d.incasso}
+            <b>Incasso totale:</b> € ${d.incasso}<br/>
+            <hr>
+            <label>Tipo carburante</label>
+            <select id="tipo-${d.id}">
+                <option value="benzina">Benzina</option>
+                <option value="diesel">Diesel</option>
+            </select>
+            <label>Litri da erogare</label>
+            <input type="number" id="litri-${d.id}" min="1" />
+            <button onclick="eroga(${d.id})">Eroga</button>
         `;
-        // Aggiungi evento click per centrare la mappa
         el.addEventListener('click', () => {
             const [lat, lon] = d.coordinate;
-            map.flyTo([lat, lon], 17, { duration: 1.5 }); // zoom più ravvicinato
+            map.flyTo([lat, lon], 17, { duration: 1.5 });
         });
-
         container.appendChild(el);
-
     });
 }
 
+// Funzione unica erogazione
+async function eroga(id) {
+    const tipo = document.getElementById(`tipo-${id}`).value;
+    const litri = document.getElementById(`litri-${id}`).value;
+
+    if (!litri || litri <= 0) {
+        alert("Inserisci una quantità valida di litri");
+        return;
+    }
+
+    try {
+        const url = `/distributori/eroga/${id}?tipo=${encodeURIComponent(tipo)}&litri=${encodeURIComponent(litri)}`;
+        const res = await fetch(url, { method: "POST" });
+        const data = await res.json();
+
+        if (data.errore) {
+            alert(data.errore);
+            return;
+        }
+
+        generaElenco(data, 'id-result');
+        aggiornaMappa([data]);
+    } catch (err) {
+        console.error(err);
+        alert("Errore nella richiesta");
+    }
+}
 
 // Elenco completo
 let elencoVisibile = false;
@@ -213,6 +262,33 @@ document.getElementById('btn-change-price').addEventListener('click', async () =
     } catch (err) {
         console.error(err);
         alert("Errore nell'aggiornamento dei prezzi");
+    }
+});
+
+// Eroga carburante dalla scheda apposita
+document.getElementById('btn-eroga').addEventListener('click', async () => {
+    const id = document.getElementById('id-eroga').value;
+    const tipo = document.getElementById('tipo-eroga').value;
+    const litri = document.getElementById('litri-eroga').value;
+
+    if (!id || !tipo || !litri) {
+        return alert("Compila tutti i campi per erogare carburante");
+    }
+
+    try {
+        const url = `/distributori/eroga/${id}?tipo=${encodeURIComponent(tipo)}&litri=${encodeURIComponent(litri)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.errore) {
+            document.getElementById('eroga-result').innerHTML = `<p style="color:red;">${data.errore}</p>`;
+        } else {
+            generaElenco(data, 'eroga-result');
+            aggiornaMappa([data]);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Errore nell'erogazione del carburante");
     }
 });
 </script>
