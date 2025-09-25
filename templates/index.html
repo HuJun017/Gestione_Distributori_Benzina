@@ -1,108 +1,104 @@
 <!doctype html>
 <html lang="it">
 <head>
-<meta charset="utf-8" />
+<meta charset="utf-8">
 <title>Monitoraggio Distributori Iperstaroil</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- CSS Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; }
-header { background:#2c3e50; color:white; padding:12px 16px; }
-main { display:flex; gap:16px; padding:16px; }
-.left { width:420px; max-height:80vh; overflow:auto; }
-.right { flex:1; min-height:70vh; }
-.card { border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:6px; background:#fff; position:relative; }
-label { display:block; margin-top:8px; font-weight:600; }
-input[type="text"], input[type="number"], select { width:100%; padding:6px; box-sizing:border-box; }
-button { margin-top:8px; padding:8px 10px; cursor:pointer; }
-#map { height:75vh; border-radius:6px; }
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-/* Bottone chiudi dentro la scheda */
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+#map { height: 75vh; border-radius: 0.5rem; }
+.card { margin-bottom: 1rem; position: relative; }
 .close-btn {
-  position:absolute;
-  top:6px;
-  right:6px;
-  background:#e74c3c;
-  color:white;
-  border:none;
-  border-radius:4px;
-  padding:2px 6px;
-  font-size:12px;
-  cursor:pointer;
+  position:absolute; top:0.5rem; right:0.5rem;
+  background:#e74c3c; color:white; border:none; border-radius:0.25rem; padding:0.1rem 0.4rem; font-size:0.8rem;
 }
 .close-btn:hover { background:#c0392b; }
 </style>
 </head>
 <body>
-<header>
-<h2>Monitoraggio Distributori Iperstaroil</h2>
+<header class="bg-dark text-white p-3 mb-3">
+  <div class="container">
+    <h2 class="mb-0">Monitoraggio Distributori Iperstaroil</h2>
+  </div>
 </header>
-<main>
-<div class="left">
-    <div class="card">
-        <h3>Elenco distributori (tutti)</h3>
-        <button id="btn-list-all">Mostra elenco</button>
+
+<main class="container">
+  <div class="row g-3">
+    <!-- Colonna sinistra -->
+    <div class="col-md-4">
+      <!-- Elenco distributori -->
+      <div class="card p-3">
+        <h5>Elenco distributori (tutti)</h5>
+        <button id="btn-list-all" class="btn btn-primary btn-sm mb-2">Mostra elenco</button>
         <div id="list-all"></div>
-    </div>
-    <div class="card">
-        <h3>Ricerca per provincia</h3>
-        <label for="prov-input">Provincia</label>
-        <input id="prov-input" type="text" placeholder="es. Milano" />
-        <button id="btn-prov">Cerca</button>
+      </div>
+
+      <!-- Ricerca per provincia -->
+      <div class="card p-3">
+        <h5>Ricerca per provincia</h5>
+        <input id="prov-input" type="text" class="form-control form-control-sm mb-2" placeholder="Es. Milano">
+        <button id="btn-prov" class="btn btn-primary btn-sm mb-2">Cerca</button>
         <div id="prov-result"></div>
-    </div>
-    <div class="card">
-        <h3>Ricerca per ID</h3>
-        <label for="id-input">ID Distributore</label>
-        <input id="id-input" type="number" min="1" />
-        <button id="btn-id">Cerca</button>
+      </div>
+
+      <!-- Ricerca per ID -->
+      <div class="card p-3">
+        <h5>Ricerca per ID</h5>
+        <input id="id-input" type="number" min="1" class="form-control form-control-sm mb-2">
+        <button id="btn-id" class="btn btn-primary btn-sm mb-2">Cerca</button>
         <div id="id-result"></div>
-    </div>
-    <div class="card">
-        <h3>Cambio prezzo per provincia</h3>
-        <label for="prov-price">Provincia</label>
-        <input id="prov-price" type="text" placeholder="es. Milano" />
-        <label for="tipo-price">Tipo carburante</label>
-        <select id="tipo-price">
-            <option value="benzina">benzina</option>
-            <option value="diesel">diesel</option>
+      </div>
+
+      <!-- Cambio prezzo -->
+      <div class="card p-3">
+        <h5>Cambio prezzo per provincia</h5>
+        <input id="prov-price" type="text" class="form-control form-control-sm mb-2" placeholder="Es. Milano">
+        <select id="tipo-price" class="form-select form-select-sm mb-2">
+          <option value="benzina">Benzina</option>
+          <option value="diesel">Diesel</option>
         </select>
-        <label for="new-price">Nuovo prezzo (€)</label>
-        <input id="new-price" type="number" step="0.01" />
-        <button id="btn-change-price">Aggiorna prezzi</button>
+        <input id="new-price" type="number" step="0.01" class="form-control form-control-sm mb-2" placeholder="Nuovo prezzo (€)">
+        <button id="btn-change-price" class="btn btn-primary btn-sm mb-2">Aggiorna prezzi</button>
         <div id="change-result"></div>
-    </div>
-    <div class="card">
-        <h3>Eroga carburante</h3>
-        <label for="id-eroga">ID Distributore</label>
-        <input id="id-eroga" type="number" min="1" />
+      </div>
 
-        <label for="tipo-eroga">Tipo carburante</label>
-        <select id="tipo-eroga">
-            <option value="benzina">benzina</option>
-            <option value="diesel">diesel</option>
+      <!-- Eroga carburante -->
+      <div class="card p-3">
+        <h5>Eroga carburante</h5>
+        <input id="id-eroga" type="number" min="1" class="form-control form-control-sm mb-2" placeholder="ID distributore">
+        <select id="tipo-eroga" class="form-select form-select-sm mb-2">
+          <option value="benzina">Benzina</option>
+          <option value="diesel">Diesel</option>
         </select>
-
-        <label for="litri-eroga">Litri da erogare</label>
-        <input id="litri-eroga" type="number" step="0.01" />
-
-        <button id="btn-eroga">Eroga</button>
+        <input id="litri-eroga" type="number" step="0.01" class="form-control form-control-sm mb-2" placeholder="Litri da erogare">
+        <button id="btn-eroga" class="btn btn-primary btn-sm mb-2">Eroga</button>
         <div id="eroga-result"></div>
+      </div>
     </div>
-</div>
 
-<div class="right">
-    <div class="card">
-        <h3>Mappa distributori</h3>
+    <!-- Colonna destra (mappa) -->
+    <div class="col-md-8">
+      <div class="card p-3">
+        <h5>Mappa distributori</h5>
         <div id="map"></div>
+      </div>
     </div>
-</div>
+  </div>
 </main>
 
+<!-- JS Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- JS Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
+// Inizializzazione mappa
 const map = L.map('map').setView([41.9, 12.5], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -127,13 +123,13 @@ function aggiornaMappa(data) {
     }
 }
 
-// genera elenco con mini form di erogazione
+// Genera elenco distributori con card Bootstrap
 function generaElenco(data, containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
     (Array.isArray(data) ? data : [data]).forEach(d => {
         const el = document.createElement('div');
-        el.className = 'card';
+        el.className = 'card p-2 position-relative';
         el.innerHTML = `
             <button class="close-btn" onclick="this.parentElement.remove()">✖</button>
             <strong>${d.nome} (ID ${d.id})</strong><br/>
@@ -149,13 +145,13 @@ function generaElenco(data, containerId) {
             <b>Incasso totale:</b> € ${d.incasso}<br/>
             <hr>
             <label>Tipo carburante</label>
-            <select id="tipo-${d.id}">
+            <select id="tipo-${d.id}" class="form-select form-select-sm mb-1">
                 <option value="benzina">Benzina</option>
                 <option value="diesel">Diesel</option>
             </select>
             <label>Litri da erogare</label>
-            <input type="number" id="litri-${d.id}" min="1" />
-            <button onclick="eroga(${d.id})">Eroga</button>
+            <input type="number" id="litri-${d.id}" min="1" class="form-control form-control-sm mb-1"/>
+            <button class="btn btn-success btn-sm" onclick="eroga(${d.id})">Eroga</button>
         `;
         el.addEventListener('click', () => {
             const [lat, lon] = d.coordinate;
@@ -277,11 +273,11 @@ document.getElementById('btn-eroga').addEventListener('click', async () => {
 
     try {
         const url = `/distributori/eroga/${id}?tipo=${encodeURIComponent(tipo)}&litri=${encodeURIComponent(litri)}`;
-        const res = await fetch(url, { method: 'POST' });
+        const res = await fetch(url, { method: "POST" });
         const data = await res.json();
 
         if (data.errore) {
-            document.getElementById('eroga-result').innerHTML = `<p style="color:red;">${data.errore}</p>`;
+            document.getElementById('eroga-result').innerHTML = `<p class="text-danger">${data.errore}</p>`;
         } else {
             generaElenco(data, 'eroga-result');
             aggiornaMappa([data]);
