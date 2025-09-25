@@ -16,6 +16,7 @@ class Distributore(Serbatoio):
         self.capienza_benzina = capienza_benzina
         self.capienza_diesel = capienza_diesel
 
+        # inizialmente pieni
         self.volume_benzina = capienza_benzina
         self.volume_diesel = capienza_diesel
 
@@ -45,7 +46,36 @@ class Distributore(Serbatoio):
         }
 
     def cambia_prezzo(self, tipo, nuovo_prezzo):
+        """Aggiorna il prezzo di un carburante."""
         if tipo == "benzina":
             self.prezzo_benzina = nuovo_prezzo
         elif tipo == "diesel":
             self.prezzo_diesel = nuovo_prezzo
+        else:
+            raise ValueError("Tipo carburante non valido. Usa 'benzina' o 'diesel'.")
+
+    def eroga_carburante(self, tipo, litri):
+        """Eroga una quantità di carburante, se disponibile."""
+        if litri <= 0:
+            raise ValueError("La quantità deve essere positiva.")
+
+        if tipo == "benzina":
+            if self.volume_benzina >= litri:
+                self.volume_benzina -= litri
+                self.venduti_benzina += litri
+                self.incasso += litri * self.prezzo_benzina
+                return True
+            else:
+                return False
+
+        elif tipo == "diesel":
+            if self.volume_diesel >= litri:
+                self.volume_diesel -= litri
+                self.venduti_diesel += litri
+                self.incasso += litri * self.prezzo_diesel
+                return True
+            else:
+                return False
+
+        else:
+            raise ValueError("Tipo carburante non valido. Usa 'benzina' o 'diesel'.")
